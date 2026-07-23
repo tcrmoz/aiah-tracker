@@ -18,7 +18,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.ITileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
@@ -63,6 +65,14 @@ class TrackActivity : AppCompatActivity() {
     private val prefs: SharedPreferences by lazy {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
+
+    // Спутниковый слой ESRI World Imagery (свой, чтобы не зависеть от версии OSMDroid)
+    private val satelliteSource: ITileSource = object : OnlineTileSourceBase(
+        "EsriWorldImagery",
+        0, 19, 256, ".jpg",
+        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
+        "© Esri, Maxar, Earthstar Geographics"
+    ) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -320,7 +330,7 @@ class TrackActivity : AppCompatActivity() {
         val savedZoom = mapView.zoomLevelDouble
         val savedCenter = mapView.mapCenter
         val source = when (type) {
-            TILE_SATELLITE -> TileSourceFactory.ESRI_WORLD_IMAGERY
+            TILE_SATELLITE -> satelliteSource
             else -> TileSourceFactory.MAPNIK
         }
         mapView.setTileSource(source)
