@@ -2,6 +2,8 @@ package com.aiah.tracker
 
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
@@ -32,6 +34,18 @@ class TrackActivity : AppCompatActivity() {
 
     private var dates: List<String> = emptyList()
     private lateinit var device: String
+    private var currentDate: String? = null
+    private var lastPointCount = -1
+    private val refreshHandler = Handler(Looper.getMainLooper())
+    private val refreshIntervalMs = 5000L  // опрос каждые 5 сек
+
+    private val refreshRunnable = object : Runnable {
+        override fun run() {
+            val date = currentDate ?: return
+            refreshTrack(date)
+            refreshHandler.postDelayed(this, refreshIntervalMs)
+        }
+    }
 
     companion object {
         const val TAG = "TrackerMap"
@@ -111,11 +125,19 @@ class TrackActivity : AppCompatActivity() {
         progressBar.visibility = View.VISIBLE
         infoText.text = "Загрузка трека $device за $date..."
 
+        // Остановить старый polling и сбросить счётчик
+        refreshHandler.removeCallbacks(refreshRunnable)
+        lastPointCount = -1
+        currentDate = date
+
         lifecycleScope.launch {
             try {
                 val track = api.getTrack(device, date)
                 progressBar.visibility = View.GONE
-                drawTrack(track)
+                lastPointCount = track.point_count
+                drawTrack(track, fitToScreen = true)
+                // Запустить авто-рефреш
+                refreshHandler.postDelayed(refreshRunnable, refreshIntervalMs)
             } catch (e: Exception) {
                 progressBar.visibility = View.GONE
                 infoText.text = "Ошибка: ${e.message}"
@@ -124,7 +146,26 @@ class TrackActivity : AppCompatActivity() {
         }
     }
 
-    private fun drawTrack(track: TrackResponse) {
+    private fun refreshTrack(date: String) {
+        // Тихо опрашиваем сервер в фоне
+        lifecycleScope.launch {
+            try {
+                val track = api.getTrack(device, date)
+                if (track.point_count > lastPointCount) {
+                    val added = track.point_count - lastPointCount
+                    lastPointCount = track.point_count
+                    // Перерисовываем без сброса зума
+                    drawTrack(track, fitToScreen = false)
+                    infoText.text = "${infoText.text} • +$added точек"
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Refresh failed: ${e.message}")
+                // Тихо — следующая попытка через 5 сек
+            }
+        }
+    }
+
+    private fun drawTrack(track: TrackResponse, fitToScreen: Boolean) {
         mapView.overlays.clear()
 
         val points = mutableListOf<GeoPoint>()
@@ -135,7 +176,6 @@ class TrackActivity : AppCompatActivity() {
         // Иконки: маленькая для всех точек, большая для последней
         val smallIcon = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_point_small)
         val largeIcon = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_point_large)
-        // Считаем количество точек (без LineString) чтобы знать, какая последняя
         val pointFeatures = track.features.filter { it.geometry?.type == "Point" }
         val lastPointIdx = pointFeatures.size - 1
 
@@ -197,27 +237,27 @@ class TrackActivity : AppCompatActivity() {
             }
         }
 
-        // Bounding box с отступом 10% — чтобы трек помещался на экран
-        var minLat = points.first().latitude
-        var maxLat = points.first().latitude
-        var minLon = points.first().longitude
-        var maxLon = points.first().longitude
-        for (p in points) {
-            if (p.latitude < minLat) minLat = p.latitude
-            if (p.latitude > maxLat) maxLat = p.latitude
-            if (p.longitude < minLon) minLon = p.longitude
-            if (p.longitude > maxLon) maxLon = p.longitude
-        }
-        // Добавляем 10% padding
-        val latPad = (maxLat - minLat).coerceAtLeast(0.0001) * 0.1
-        val lonPad = (maxLon - minLon).coerceAtLeast(0.0001) * 0.1
-        val boundingBox = org.osmdroid.util.BoundingBox(
-            maxLat + latPad, maxLon + lonPad,
-            minLat - latPad, minLon - lonPad
-        )
-        // post() — дождаться layout'а, иначе размеры карты нулевые
-        mapView.post {
-            mapView.zoomToBoundingBox(boundingBox, false)
+        if (fitToScreen && points.isNotEmpty()) {
+            // Bounding box с отступом 10% — только при первой загрузке
+            var minLat = points.first().latitude
+            var maxLat = points.first().latitude
+            var minLon = points.first().longitude
+            var maxLon = points.first().longitude
+            for (p in points) {
+                if (p.latitude < minLat) minLat = p.latitude
+                if (p.latitude > maxLat) maxLat = p.latitude
+                if (p.longitude < minLon) minLon = p.longitude
+                if (p.longitude > maxLon) maxLon = p.longitude
+            }
+            val latPad = (maxLat - minLat).coerceAtLeast(0.0001) * 0.1
+            val lonPad = (maxLon - minLon).coerceAtLeast(0.0001) * 0.1
+            val boundingBox = org.osmdroid.util.BoundingBox(
+                maxLat + latPad, maxLon + lonPad,
+                minLat - latPad, minLon - lonPad
+            )
+            mapView.post {
+                mapView.zoomToBoundingBox(boundingBox, false)
+            }
         }
 
         infoText.text = "Точек: $count • Макс: ${"%.0f".format(maxSpeed)} км/ч • Средн: ${"%.0f".format(avgSpeed)} км/ч"
@@ -237,10 +277,16 @@ class TrackActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         mapView.onResume()
+        // Возобновить авто-рефреш если был активен
+        if (currentDate != null) {
+            refreshHandler.removeCallbacks(refreshRunnable)
+            refreshHandler.postDelayed(refreshRunnable, refreshIntervalMs)
+        }
     }
 
     override fun onPause() {
         super.onPause()
         mapView.onPause()
+        refreshHandler.removeCallbacks(refreshRunnable)
     }
 }
