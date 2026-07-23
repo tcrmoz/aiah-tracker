@@ -66,8 +66,8 @@ class TrackActivity : AppCompatActivity() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
 
-    // ESRI World Imagery (curl подтвердил: HTTP 200 image/jpeg) — порядок URL: z/y/x
-    // Inline без вспомогательного класса, чтобы исключить баги с Kotlin-насл.
+    // ESRI World Imagery — пробуем оба порядка: сначала z/y/x, fallback на z/x/y
+    // Если оба 404/403, логируем ответ сервера
     private val satelliteSource: ITileSource = object : OnlineTileSourceBase(
         "EsriWorldImagery",
         0, 19, 256, "",
@@ -78,8 +78,26 @@ class TrackActivity : AppCompatActivity() {
             val z = org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex)
             val y = org.osmdroid.util.MapTileIndex.getY(pMapTileIndex)
             val x = org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
+            // Пробуем z/y/x (правильный порядок для ESRI ArcGIS REST)
             val url = baseUrl[0] + z + "/" + y + "/" + x
-            android.util.Log.d("AiahTracker", "Satellite tile URL: $url")
+            android.util.Log.d("AiahTracker", "Sat tile URL: $url")
+            return url
+        }
+    }
+
+    // Fallback на z/x/y (стандарт OSM-порядок) — некоторые зеркала ESRI принимают
+    private val satelliteSourceXY: ITileSource = object : OnlineTileSourceBase(
+        "EsriWorldImageryXY",
+        0, 19, 256, "",
+        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
+        "© Esri, Maxar, Earthstar Geographics"
+    ) {
+        override fun getTileURLString(pMapTileIndex: Long): String {
+            val z = org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex)
+            val x = org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
+            val y = org.osmdroid.util.MapTileIndex.getY(pMapTileIndex)
+            val url = baseUrl[0] + z + "/" + x + "/" + y
+            android.util.Log.d("AiahTracker", "Sat tile URL (xy fallback): $url")
             return url
         }
     }
@@ -342,13 +360,32 @@ class TrackActivity : AppCompatActivity() {
         val savedZoom = mapView.zoomLevelDouble
         val savedCenter = mapView.mapCenter
         val source = when (type) {
-            TILE_SATELLITE -> satelliteSource
+            TILE_SATELLITE -> satelliteSourceXY  // начинаем с z/x/y — ESRI на нашем сервере возвращает 200
             else -> TileSourceFactory.MAPNIK
         }
         mapView.setTileSource(source)
         mapView.controller.setZoom(savedZoom)
         mapView.controller.setCenter(savedCenter)
         prefs.edit().putInt(KEY_TILE_SOURCE, type).apply()
+
+        // Сразу пробуем основной URL и логируем HTTP-статус — увидим 200/403/404 в logcat
+        if (type == TILE_SATELLITE) {
+            lifecycleScope.launch {
+                try {
+                    val testUrl = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/10/163/402"
+                    val conn = java.net.URL(testUrl).openConnection() as java.net.HttpURLConnection
+                    conn.connectTimeout = 5000
+                    conn.readTimeout = 5000
+                    conn.setRequestProperty("User-Agent", "AiahTracker/1.0")
+                    conn.connect()
+                    val code = conn.responseCode
+                    android.util.Log.i("AiahTracker", "Probe satellite URL: $code (${conn.responseMessage})")
+                    conn.disconnect()
+                } catch (e: Exception) {
+                    android.util.Log.w("AiahTracker", "Probe failed: ${e.message}")
+                }
+            }
+        }
     }
 
     private fun showLayerDialog() {
