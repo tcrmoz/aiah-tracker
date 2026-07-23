@@ -172,6 +172,7 @@ class TrackActivity : AppCompatActivity() {
         var maxSpeed = 0.0
         var avgSpeed = 0.0
         var count = 0
+        var totalDistanceKm = 0.0
 
         // Иконки: маленькая для всех точек, большая для последней
         val smallIcon = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_point_small)
@@ -198,6 +199,15 @@ class TrackActivity : AppCompatActivity() {
             val geoPoint = GeoPoint(lat, lon)
             points.add(geoPoint)
             count++
+
+            // Haversine distance from previous point
+            if (points.size >= 2) {
+                val prev = points[points.size - 2]
+                totalDistanceKm += haversineKm(
+                    prev.latitude, prev.longitude,
+                    lat, lon
+                )
+            }
 
             val speedKmh = (feature.properties?.get("speed_kmh") as? Number)?.toDouble() ?: 0.0
             if (speedKmh > maxSpeed) maxSpeed = speedKmh
@@ -260,8 +270,20 @@ class TrackActivity : AppCompatActivity() {
             }
         }
 
-        infoText.text = "Точек: $count • Макс: ${"%.0f".format(maxSpeed)} км/ч • Средн: ${"%.0f".format(avgSpeed)} км/ч"
+        infoText.text = "Точек: $count • Пробег: ${"%.1f".format(totalDistanceKm)} км • Макс: ${"%.0f".format(maxSpeed)} км/ч • Средн: ${"%.0f".format(avgSpeed)} км/ч"
         mapView.invalidate()
+    }
+
+    // Haversine distance in kilometers between two lat/lon points
+    private fun haversineKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371.0  // Earth radius in km
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2).let { it * it } +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2).let { it * it }
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return r * c
     }
 
     private fun speedToColor(speedKmh: Double): Int {
