@@ -132,11 +132,22 @@ class TrackActivity : AppCompatActivity() {
         var avgSpeed = 0.0
         var count = 0
 
+        // Иконки: маленькая для всех точек, большая для последней
+        val smallIcon = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_point_small)
+        val largeIcon = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_point_large)
+        // Считаем количество точек (без LineString) чтобы знать, какая последняя
+        val pointFeatures = track.features.filter { it.geometry?.type == "Point" }
+        val lastPointIdx = pointFeatures.size - 1
+
+        var pointIdx = -1
         for (feature in track.features) {
             val geom = feature.geometry ?: continue
 
             if (geom.type == "LineString") continue
             if (geom.type != "Point") continue
+
+            pointIdx++
+            val isLast = pointIdx == lastPointIdx
 
             @Suppress("UNCHECKED_CAST")
             val coords = geom.coordinates as? List<Double> ?: continue
@@ -155,9 +166,12 @@ class TrackActivity : AppCompatActivity() {
             val time = feature.properties?.get("time") as? String ?: ""
             val marker = Marker(mapView).apply {
                 position = geoPoint
-                title = "$time • ${speedKmh} км/ч"
-                snippet = "lat: ${"%.4f".format(lat)}, lon: ${"%.4f".format(lon)}"
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                icon = if (isLast) largeIcon else smallIcon
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                if (isLast) {
+                    title = "Финальная точка: $time • ${speedKmh} км/ч"
+                    snippet = "lat: ${"%.4f".format(lat)}, lon: ${"%.4f".format(lon)}"
+                }
             }
             mapView.overlays.add(marker)
         }
