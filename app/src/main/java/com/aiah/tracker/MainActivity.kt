@@ -12,13 +12,12 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private lateinit var api: ApiClient
-    private lateinit var adapter: TracksAdapter
+    private lateinit var adapter: DevicesAdapter
 
     companion object {
         const val TAG = "TrackerMain"
         const val BASE_URL = "http://100.72.117.127:18080"
         const val EXTRA_DEVICE = "device"
-        const val EXTRA_DATE = "date"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,32 +30,24 @@ class MainActivity : AppCompatActivity() {
         setContentView(rv)
 
         api = ApiClient(BASE_URL)
-        adapter = TracksAdapter(this) { item ->
+        adapter = DevicesAdapter(this) { item ->
             val intent = Intent(this, TrackActivity::class.java).apply {
-                putExtra(EXTRA_DEVICE, item.device)
-                putExtra(EXTRA_DATE, item.date)
+                putExtra(EXTRA_DEVICE, item.name)
             }
             startActivity(intent)
         }
         rv.adapter = adapter
 
-        loadTracks()
+        loadDevices()
     }
 
-    private fun loadTracks() {
+    private fun loadDevices() {
         lifecycleScope.launch {
             try {
                 val tracks = api.getTracks()
-                val items = mutableListOf<TrackItem>()
-                for ((device, dates) in tracks) {
-                    for (date in dates) {
-                        items.add(TrackItem(device = device, date = date))
-                    }
-                }
-                items.sortByDescending { "${it.device}-${it.date}" }
-                adapter.update(items)
+                adapter.update(tracks.keys.toList())
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load tracks", e)
+                Log.e(TAG, "Failed to load devices", e)
             }
         }
     }
