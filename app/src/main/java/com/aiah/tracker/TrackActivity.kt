@@ -66,38 +66,21 @@ class TrackActivity : AppCompatActivity() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
 
-    // ESRI World Imagery — пробуем оба порядка: сначала z/y/x, fallback на z/x/y
-    // Если оба 404/403, логируем ответ сервера
-    private val satelliteSource: ITileSource = object : OnlineTileSourceBase(
-        "EsriWorldImagery",
-        0, 19, 256, "",
-        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
-        "© Esri, Maxar, Earthstar Geographics"
-    ) {
-        override fun getTileURLString(pMapTileIndex: Long): String {
-            val z = org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex)
-            val y = org.osmdroid.util.MapTileIndex.getY(pMapTileIndex)
-            val x = org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
-            // Пробуем z/y/x (правильный порядок для ESRI ArcGIS REST)
-            val url = baseUrl[0] + z + "/" + y + "/" + x
-            android.util.Log.d("AiahTracker", "Sat tile URL: $url")
-            return url
-        }
-    }
-
-    // Fallback на z/x/y (стандарт OSM-порядок) — некоторые зеркала ESRI принимают
+    // Yandex Satellite (https://sat0{s}.maps.yandex.net) — российский, не блокируется в РБ/РФ.
+    // Формат OSM: x/y/z, в URL как query-параметры: ?l=sat&x={x}&y={y}&z={z}
+    // curl тест: HTTP 200, image/png
     private val satelliteSourceXY: ITileSource = object : OnlineTileSourceBase(
-        "EsriWorldImageryXY",
+        "YandexSat",
         0, 19, 256, "",
-        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
-        "© Esri, Maxar, Earthstar Geographics"
+        arrayOf("https://sat01.maps.yandex.net/tiles?l=sat&x="),
+        "© Яндекс"
     ) {
         override fun getTileURLString(pMapTileIndex: Long): String {
             val z = org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex)
             val x = org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
             val y = org.osmdroid.util.MapTileIndex.getY(pMapTileIndex)
-            val url = baseUrl[0] + z + "/" + x + "/" + y
-            android.util.Log.d("AiahTracker", "Sat tile URL (xy fallback): $url")
+            val url = "https://sat01.maps.yandex.net/tiles?l=sat&x=" + x + "&y=" + y + "&z=" + z
+            android.util.Log.d("AiahTracker", "Yandex sat tile: $url")
             return url
         }
     }
