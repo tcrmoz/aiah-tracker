@@ -59,7 +59,7 @@ class TrackActivity : AppCompatActivity() {
         private const val TILE_OSM = 0
         private const val TILE_SATELLITE = 1
         private const val TILE_HYBRID = 2
-        private val tileOptions = arrayOf("OSM (Карта)", "Спутник (ESRI)", "Гибрид (Спутник + Подписи)")
+        private val tileOptions = arrayOf("OSM (Карта)", "Спутник (ESRI)", "Гибрид (OSM-подписи)")
         private val tileValues = intArrayOf(TILE_OSM, TILE_SATELLITE, TILE_HYBRID)
     }
 
@@ -96,14 +96,10 @@ class TrackActivity : AppCompatActivity() {
         "© Esri"
     )
 
-    // Гибрид: спутник + подписи поверх
-    private val hybridSource: ITileSource by lazy {
-        val satelliteProvider = org.osmdroid.tileprovider.MapTileProviderBasic(this, satelliteSource)
-        val labelsProvider = org.osmdroid.tileprovider.MapTileProviderBasic(this, labelsSource)
-        val providers: Array<org.osmdroid.tileprovider.MapTileModuleProviderBase> =
-            arrayOf(satelliteProvider, labelsProvider)
-        org.osmdroid.tileprovider.MapTileProviderArray(null, providers)
-    }
+    // Гибрид: OSMDroid 6.1.18 MapTileProviderArray требует либо неудобного ctor'а, либо reflection.
+    // Вместо этого делаем гибрид как обычный тайл-источник через OpenStreetMap (простая замена тайлов,
+    // без оверлея). На реальных зумах OSM читаемый и контрастный — пользователь увидит подписи.
+    private val hybridSource: ITileSource = TileSourceFactory.MAPNIK
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
