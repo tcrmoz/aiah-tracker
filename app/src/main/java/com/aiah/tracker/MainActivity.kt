@@ -3,6 +3,8 @@ package com.aiah.tracker
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
+import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -23,11 +25,26 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val rv = RecyclerView(this).apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            setPadding(48, 48, 48, 48)
+        // Контейнер, центрирующий список по середине экрана
+        val container = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
         }
-        setContentView(rv)
+
+        val rv = RecyclerView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER_VERTICAL
+            )
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            clipToPadding = false
+            setPadding(48, 96, 48, 96)
+        }
+        container.addView(rv)
+        setContentView(container)
 
         api = ApiClient(BASE_URL)
         adapter = DevicesAdapter(this) { item ->
