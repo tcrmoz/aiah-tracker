@@ -66,27 +66,23 @@ class TrackActivity : AppCompatActivity() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
 
-    // ESRI базовый helper: собирает URL с порядком z/y/x, без расширения
-    private open class EsriTileSource(name: String, baseUrl: String, copyright: String) : OnlineTileSourceBase(
-        name,
+    // ESRI World Imagery (curl подтвердил: HTTP 200 image/jpeg) — порядок URL: z/y/x
+    // Inline без вспомогательного класса, чтобы исключить баги с Kotlin-насл.
+    private val satelliteSource: ITileSource = object : OnlineTileSourceBase(
+        "EsriWorldImagery",
         0, 19, 256, "",
-        arrayOf(baseUrl),
-        copyright
+        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
+        "© Esri, Maxar, Earthstar Geographics"
     ) {
         override fun getTileURLString(pMapTileIndex: Long): String {
-            return baseUrl[0] +
-                org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex) + "/" +
-                org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) + "/" +
-                org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
+            val z = org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex)
+            val y = org.osmdroid.util.MapTileIndex.getY(pMapTileIndex)
+            val x = org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
+            val url = baseUrl[0] + z + "/" + y + "/" + x
+            android.util.Log.d("AiahTracker", "Satellite tile URL: $url")
+            return url
         }
     }
-
-    // Спутниковый слой — USGS National Map Imagery (бесплатный, без ключа, формат z/y/x как у ESRI)
-    private val satelliteSource: ITileSource = EsriTileSource(
-        "USGSImageryOnly",
-        "https://basemap.nationalmap.gov/ArcGIS/rest/services/USGSImageryOnly/MapServer/tile/",
-        "© USGS"
-    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
