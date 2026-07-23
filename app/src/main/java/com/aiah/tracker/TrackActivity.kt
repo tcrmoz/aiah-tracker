@@ -68,7 +68,7 @@ class TrackActivity : AppCompatActivity() {
     }
 
     // ESRI базовый helper: собирает URL с порядком z/y/x
-    private abstract class EsriTileSource(name: String, baseUrl: String, copyright: String) : OnlineTileSourceBase(
+    private open class EsriTileSource(name: String, baseUrl: String, copyright: String) : OnlineTileSourceBase(
         name,
         0, 19, 256, ".jpg",
         arrayOf(baseUrl),
@@ -99,9 +99,10 @@ class TrackActivity : AppCompatActivity() {
     // Гибрид: спутник + подписи поверх
     private val hybridSource: ITileSource by lazy {
         org.osmdroid.tileprovider.MapTileProviderArray(
-            org.osmdroid.tileprovider.MapTileCache(),
-            arrayOf(satelliteSource, labelsSource)
-        ).tileSource
+            null,
+            satelliteSource,
+            labelsSource
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
