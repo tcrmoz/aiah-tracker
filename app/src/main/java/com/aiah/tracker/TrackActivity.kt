@@ -98,10 +98,9 @@ class TrackActivity : AppCompatActivity() {
 
     // Гибрид: спутник + подписи поверх
     private val hybridSource: ITileSource by lazy {
-        org.osmdroid.tileprovider.MapTileProviderArray(
-            org.osmdroid.tileprovider.MapTileProviderBasic(satelliteSource),
-            org.osmdroid.tileprovider.MapTileProviderBasic(labelsSource)
-        )
+        val satelliteProvider = org.osmdroid.tileprovider.MapTileProviderBasic(this, satelliteSource)
+        val labelsProvider = org.osmdroid.tileprovider.MapTileProviderBasic(this, labelsSource)
+        org.osmdroid.tileprovider.MapTileProviderArray(null, arrayOf(satelliteProvider, labelsProvider))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
