@@ -349,13 +349,6 @@ class TrackActivity : AppCompatActivity() {
             TILE_SATELLITE -> satelliteSource
             else -> TileSourceFactory.MAPNIK
         }
-        // Стираем кэш прошлых failed-запросов при переключении на спутник
-        if (type == TILE_SATELLITE) {
-            try {
-                val cache = org.osmdroid.config.Configuration.getInstance().tileFileSystemCache
-                if (cache != null) cache.removeTileSource(satelliteSource.name())
-            } catch (_: Exception) {}
-        }
         mapView.setTileSource(source)
         mapView.controller.setZoom(savedZoom)
         mapView.controller.setCenter(savedCenter)
