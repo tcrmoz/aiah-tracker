@@ -100,7 +100,9 @@ class TrackActivity : AppCompatActivity() {
     private val hybridSource: ITileSource by lazy {
         val satelliteProvider = org.osmdroid.tileprovider.MapTileProviderBasic(this, satelliteSource)
         val labelsProvider = org.osmdroid.tileprovider.MapTileProviderBasic(this, labelsSource)
-        org.osmdroid.tileprovider.MapTileProviderArray(null, arrayOf(satelliteProvider, labelsProvider))
+        val providers: Array<org.osmdroid.tileprovider.MapTileModuleProviderBase> =
+            arrayOf(satelliteProvider, labelsProvider)
+        org.osmdroid.tileprovider.MapTileProviderArray(null, providers)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
