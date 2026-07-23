@@ -66,13 +66,19 @@ class TrackActivity : AppCompatActivity() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
 
-    // Спутниковый слой ESRI World Imagery (свой, чтобы не зависеть от версии OSMDroid)
+    // Спутниковый слой ESRI World Imagery (свой, т.к. в OSMDroid 6.1.18 нет ESRI_WORLD_IMAGERY)
     private val satelliteSource: ITileSource = object : OnlineTileSourceBase(
         "EsriWorldImagery",
         0, 19, 256, ".jpg",
         arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
         "© Esri, Maxar, Earthstar Geographics"
-    ) {}
+    ) {
+        override fun getTileURLString(pMapTileIndex: Long): String {
+            val idx = org.osmdroid.util.MapTileIndex(pMapTileIndex)
+            // ESRI использует порядок z/y/x (не z/x/y)
+            return baseUrl[0] + idx.zoomLevel + "/" + idx.y + "/" + idx.x
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
