@@ -74,9 +74,11 @@ class TrackActivity : AppCompatActivity() {
         "© Esri, Maxar, Earthstar Geographics"
     ) {
         override fun getTileURLString(pMapTileIndex: Long): String {
-            val idx = org.osmdroid.util.MapTileIndex(pMapTileIndex)
             // ESRI использует порядок z/y/x (не z/x/y)
-            return baseUrl[0] + idx.zoomLevel + "/" + idx.y + "/" + idx.x
+            return baseUrl[0] +
+                org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex) + "/" +
+                org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) + "/" +
+                org.osmdroid.util.MapTileIndex.getX(pMapTileIndex)
         }
     }
 
