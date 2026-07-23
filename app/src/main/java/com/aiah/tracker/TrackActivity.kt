@@ -58,19 +58,18 @@ class TrackActivity : AppCompatActivity() {
         private const val KEY_TILE_SOURCE = "tile_source"
         private const val TILE_OSM = 0
         private const val TILE_SATELLITE = 1
-        private const val TILE_HYBRID = 2
-        private val tileOptions = arrayOf("OSM (Карта)", "Спутник (ESRI)", "Гибрид (OSM-подписи)")
-        private val tileValues = intArrayOf(TILE_OSM, TILE_SATELLITE, TILE_HYBRID)
+        private val tileOptions = arrayOf("OSM (Карта)", "Спутник (ESRI)")
+        private val tileValues = intArrayOf(TILE_OSM, TILE_SATELLITE)
     }
 
     private val prefs: SharedPreferences by lazy {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
 
-    // ESRI базовый helper: собирает URL с порядком z/y/x
+    // ESRI базовый helper: собирает URL с порядком z/y/x, без расширения
     private open class EsriTileSource(name: String, baseUrl: String, copyright: String) : OnlineTileSourceBase(
         name,
-        0, 19, 256, ".jpg",
+        0, 19, 256, "",
         arrayOf(baseUrl),
         copyright
     ) {
@@ -88,18 +87,6 @@ class TrackActivity : AppCompatActivity() {
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/",
         "© Esri, Maxar, Earthstar Geographics"
     )
-
-    // Слой подписей/границ ESRI (для гибрида — полупрозрачный, рисуется поверх спутника)
-    private val labelsSource: ITileSource = EsriTileSource(
-        "EsriWorldBoundaries",
-        "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/",
-        "© Esri"
-    )
-
-    // Гибрид: OSMDroid 6.1.18 MapTileProviderArray требует либо неудобного ctor'а, либо reflection.
-    // Вместо этого делаем гибрид как обычный тайл-источник через OpenStreetMap (простая замена тайлов,
-    // без оверлея). На реальных зумах OSM читаемый и контрастный — пользователь увидит подписи.
-    private val hybridSource: ITileSource = TileSourceFactory.MAPNIK
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -360,8 +347,14 @@ class TrackActivity : AppCompatActivity() {
         val savedCenter = mapView.mapCenter
         val source = when (type) {
             TILE_SATELLITE -> satelliteSource
-            TILE_HYBRID -> hybridSource
             else -> TileSourceFactory.MAPNIK
+        }
+        // Стираем кэш прошлых failed-запросов при переключении на спутник
+        if (type == TILE_SATELLITE) {
+            try {
+                org.osmdroid.config.Configuration.getInstance()
+                    .tileFileSystemCache.removeTileSource(satelliteSource.name())
+            } catch (_: Exception) {}
         }
         mapView.setTileSource(source)
         mapView.controller.setZoom(savedZoom)
