@@ -11,17 +11,28 @@ android {
         applicationId = "com.aiah.tracker"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../aiah-tracker-release.keystore")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "aiahTracker2026"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "aiah-tracker"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "aiahTracker2026"
+        }
+    }
+
     buildTypes {
+        debug {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-        }
-        debug {
-            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
