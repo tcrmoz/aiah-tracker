@@ -81,11 +81,11 @@ class TrackActivity : AppCompatActivity() {
         }
     }
 
-    // Спутниковый слой ESRI World Imagery
+    // Спутниковый слой — USGS National Map Imagery (бесплатный, без ключа, формат z/y/x как у ESRI)
     private val satelliteSource: ITileSource = EsriTileSource(
-        "EsriWorldImagery",
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/",
-        "© Esri, Maxar, Earthstar Geographics"
+        "USGSImageryOnly",
+        "https://basemap.nationalmap.gov/ArcGIS/rest/services/USGSImageryOnly/MapServer/tile/",
+        "© USGS"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
