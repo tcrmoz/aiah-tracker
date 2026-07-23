@@ -32,10 +32,28 @@
         android:layout_gravity="center"
         android:visibility="gone" />
 
-    <org.osmdroid.views.MapView
-        android:id="@+id/mapView"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1">
+
+        <org.osmdroid.views.MapView
+            android:id="@+id/mapView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <ImageButton
+            android:id="@+id/layersButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="16dp"
+            android:src="@drawable/ic_layers"
+            android:background="@drawable/bg_circle_button"
+            android:contentDescription="Слои карты"
+            android:scaleType="centerInside"
+            android:padding="10dp" />
+
+    </FrameLayout>
 
 </LinearLayout>

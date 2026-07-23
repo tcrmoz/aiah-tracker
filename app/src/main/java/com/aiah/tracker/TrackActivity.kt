@@ -1,5 +1,7 @@
 package com.aiah.tracker
 
+import android.app.AlertDialog
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
@@ -8,6 +10,7 @@ import android.util.Log
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
@@ -49,6 +52,16 @@ class TrackActivity : AppCompatActivity() {
 
     companion object {
         const val TAG = "TrackerMap"
+        private const val PREFS_NAME = "aiah_tracker"
+        private const val KEY_TILE_SOURCE = "tile_source"
+        private const val TILE_OSM = 0
+        private const val TILE_SATELLITE = 1
+        private val tileOptions = arrayOf("OSM (Карта)", "Спутник (ESRI)")
+        private val tileValues = intArrayOf(TILE_OSM, TILE_SATELLITE)
+    }
+
+    private val prefs: SharedPreferences by lazy {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,6 +84,12 @@ class TrackActivity : AppCompatActivity() {
         mapView.setTileSource(TileSourceFactory.MAPNIK)
         mapView.setMultiTouchControls(true)
         mapView.setUseDataConnection(true)
+
+        // Восстановить сохранённый тип карты
+        applyTileSource(prefs.getInt(KEY_TILE_SOURCE, TILE_OSM))
+
+        val layersButton = findViewById<ImageButton>(R.id.layersButton)
+        layersButton.setOnClickListener { showLayerDialog() }
 
         dateSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -294,6 +313,33 @@ class TrackActivity : AppCompatActivity() {
             speedKmh < 100 -> Color.parseColor("#FFA726")
             else -> Color.parseColor("#EF5350")
         }
+    }
+
+    private fun applyTileSource(type: Int) {
+        // Запоминаем текущий зум и центр, чтобы не сбрасывались при переключении
+        val savedZoom = mapView.zoomLevelDouble
+        val savedCenter = mapView.mapCenter
+        val source = when (type) {
+            TILE_SATELLITE -> TileSourceFactory.ESRI_WORLD_IMAGERY
+            else -> TileSourceFactory.MAPNIK
+        }
+        mapView.setTileSource(source)
+        mapView.controller.setZoom(savedZoom)
+        mapView.controller.setCenter(savedCenter)
+        prefs.edit().putInt(KEY_TILE_SOURCE, type).apply()
+    }
+
+    private fun showLayerDialog() {
+        val savedType = prefs.getInt(KEY_TILE_SOURCE, TILE_OSM)
+        val checkedIdx = tileValues.indexOf(savedType).coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("Тип карты")
+            .setSingleChoiceItems(tileOptions, checkedIdx) { dialog, which ->
+                applyTileSource(tileValues[which])
+                dialog.dismiss()
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     override fun onResume() {
