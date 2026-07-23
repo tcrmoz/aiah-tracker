@@ -58,23 +58,23 @@ class TrackActivity : AppCompatActivity() {
         private const val KEY_TILE_SOURCE = "tile_source"
         private const val TILE_OSM = 0
         private const val TILE_SATELLITE = 1
-        private val tileOptions = arrayOf("OSM (Карта)", "Спутник (ESRI)")
-        private val tileValues = intArrayOf(TILE_OSM, TILE_SATELLITE)
+        private const val TILE_HYBRID = 2
+        private val tileOptions = arrayOf("OSM (Карта)", "Спутник (ESRI)", "Гибрид (Спутник + Подписи)")
+        private val tileValues = intArrayOf(TILE_OSM, TILE_SATELLITE, TILE_HYBRID)
     }
 
     private val prefs: SharedPreferences by lazy {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
 
-    // Спутниковый слой ESRI World Imagery (свой, т.к. в OSMDroid 6.1.18 нет ESRI_WORLD_IMAGERY)
-    private val satelliteSource: ITileSource = object : OnlineTileSourceBase(
-        "EsriWorldImagery",
+    // ESRI базовый helper: собирает URL с порядком z/y/x
+    private abstract class EsriTileSource(name: String, baseUrl: String, copyright: String) : OnlineTileSourceBase(
+        name,
         0, 19, 256, ".jpg",
-        arrayOf("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/"),
-        "© Esri, Maxar, Earthstar Geographics"
+        arrayOf(baseUrl),
+        copyright
     ) {
         override fun getTileURLString(pMapTileIndex: Long): String {
-            // ESRI использует порядок z/y/x (не z/x/y)
             return baseUrl[0] +
                 org.osmdroid.util.MapTileIndex.getZoom(pMapTileIndex) + "/" +
                 org.osmdroid.util.MapTileIndex.getY(pMapTileIndex) + "/" +
@@ -82,10 +82,34 @@ class TrackActivity : AppCompatActivity() {
         }
     }
 
+    // Спутниковый слой ESRI World Imagery
+    private val satelliteSource: ITileSource = EsriTileSource(
+        "EsriWorldImagery",
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/",
+        "© Esri, Maxar, Earthstar Geographics"
+    )
+
+    // Слой подписей/границ ESRI (для гибрида — полупрозрачный, рисуется поверх спутника)
+    private val labelsSource: ITileSource = EsriTileSource(
+        "EsriWorldBoundaries",
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/",
+        "© Esri"
+    )
+
+    // Гибрид: спутник + подписи поверх
+    private val hybridSource: ITileSource by lazy {
+        org.osmdroid.tileprovider.MapTileProviderArray(
+            org.osmdroid.tileprovider.MapTileCache(),
+            arrayOf(satelliteSource, labelsSource)
+        ).tileSource
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         Configuration.getInstance().load(applicationContext, getSharedPreferences("osmdroid", MODE_PRIVATE))
+        // Установить User-Agent — иначе ESRI возвращает 403 (по умолчанию osmdroid)
+        Configuration.getInstance().userAgentValue = "AiahTracker/1.0 (https://github.com/tcrmoz/aiah-tracker)"
 
         device = intent.getStringExtra(MainActivity.EXTRA_DEVICE) ?: ""
         title = device
@@ -339,6 +363,7 @@ class TrackActivity : AppCompatActivity() {
         val savedCenter = mapView.mapCenter
         val source = when (type) {
             TILE_SATELLITE -> satelliteSource
+            TILE_HYBRID -> hybridSource
             else -> TileSourceFactory.MAPNIK
         }
         mapView.setTileSource(source)
