@@ -183,7 +183,7 @@ class TrackActivity : AppCompatActivity() {
             }
         }
 
-        // Bounding box
+        // Bounding box с отступом 10% — чтобы трек помещался на экран
         var minLat = points.first().latitude
         var maxLat = points.first().latitude
         var minLon = points.first().longitude
@@ -194,12 +194,17 @@ class TrackActivity : AppCompatActivity() {
             if (p.longitude < minLon) minLon = p.longitude
             if (p.longitude > maxLon) maxLon = p.longitude
         }
-        val center = GeoPoint((minLat + maxLat) / 2, (minLon + maxLon) / 2)
-        mapView.controller.setCenter(center)
-        val spanLat = (maxLat - minLat).coerceAtLeast(0.01)
-        val spanLon = (maxLon - minLon).coerceAtLeast(0.01)
-        mapView.controller.zoomToSpan(spanLat, spanLon)
-        mapView.controller.zoomOut()
+        // Добавляем 10% padding
+        val latPad = (maxLat - minLat).coerceAtLeast(0.0001) * 0.1
+        val lonPad = (maxLon - minLon).coerceAtLeast(0.0001) * 0.1
+        val boundingBox = org.osmdroid.util.BoundingBox(
+            maxLat + latPad, maxLon + lonPad,
+            minLat - latPad, minLon - lonPad
+        )
+        // post() — дождаться layout'а, иначе размеры карты нулевые
+        mapView.post {
+            mapView.zoomToBoundingBox(boundingBox, false)
+        }
 
         infoText.text = "Точек: $count • Макс: ${"%.0f".format(maxSpeed)} км/ч • Средн: ${"%.0f".format(avgSpeed)} км/ч"
         mapView.invalidate()
